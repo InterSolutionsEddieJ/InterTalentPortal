@@ -1,4 +1,6 @@
-import Link from 'next/link';
+'use client';
+
+import { useState } from 'react';
 import type { Profile } from '@/lib/db/supabase';
 
 interface ProfileCardProps {
@@ -10,37 +12,62 @@ export default function ProfileCard({
   profile,
   variant = 'grid',
 }: ProfileCardProps) {
-  // Determine color based on profession type
-  const getColorClass = (professionType: string) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Determine color based on profession type (default) or orange when expanded
+  const getColorClass = (professionType: string, expanded: boolean) => {
+    if (expanded) return 'border-l-orange-500'; // Orange when expanded per Figma
+
     const hash = professionType
       .split('')
       .reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const colors = [
-      'border-l-orange-400',
+      'border-l-blue-400',
       'border-l-green-500',
       'border-l-red-500',
-      'border-l-blue-500',
+      'border-l-purple-500',
     ];
     return colors[hash % colors.length];
   };
 
-  const colorClass = getColorClass(profile.profession_type || 'default');
+  const colorClass = getColorClass(
+    profile.profession_type || 'default',
+    isExpanded
+  );
 
-  // List view layout
+  // Truncate bio to ~2 sentences for collapsed state
+  const getBioSnippet = (bio: string, maxLength: number = 120) => {
+    if (!bio) return '';
+    if (bio.length <= maxLength) return bio;
+
+    // Try to cut at sentence end
+    const snippet = bio.substring(0, maxLength);
+    const lastPeriod = snippet.lastIndexOf('.');
+    if (lastPeriod > 60) {
+      return snippet.substring(0, lastPeriod + 1);
+    }
+    return snippet + '...';
+  };
+
+  const bioSnippet = getBioSnippet(profile.professional_summary || '');
+  const fullName = `${profile.first_name} ${profile.last_initial}.`;
+
+  // List view layout with expandable bio
   if (variant === 'list') {
     return (
       <div
-        className={`bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow p-6 border-l-4 ${colorClass}`}
+        className={`bg-white rounded-lg shadow-md hover:shadow-xl transition-all p-6 border-l-4 ${colorClass} ${
+          isExpanded ? 'ring-2 ring-orange-200' : ''
+        }`}
       >
-        <div className="flex items-center gap-4">
-          {/* Profile Info - Horizontal Layout (no avatar per Figma) */}
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-            {/* Name and Location */}
-            <div>
+        <div className="flex flex-col gap-4">
+          {/* Top row: Name, Location, Bookmark */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                {profile.first_name} {profile.last_initial}.
+                {fullName}
               </h3>
-              <p className="text-sm text-gray-600 mb-1">
+              <p className="text-sm text-gray-600 mb-2">
                 {profile.profession_type || 'Property Maintenance'}
               </p>
               <div className="flex items-center text-sm text-gray-600">
@@ -63,74 +90,13 @@ export default function ProfileCard({
                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                {profile.city}, {profile.state}
+                {profile.city}, {profile.state} • {profile.zip_code}
               </div>
             </div>
-
-            {/* Stats */}
-            <div className="flex flex-col gap-2 text-sm">
-              <div>
-                <span className="font-semibold text-gray-700">Office:</span>{' '}
-                <span className="text-gray-600">{profile.office}</span>
-              </div>
-              {profile.skills && profile.skills.length > 0 && (
-                <div>
-                  <span className="font-semibold text-gray-700">Skills:</span>{' '}
-                  <span className="text-gray-600">
-                    {profile.skills.slice(0, 3).join(', ')}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Action Button */}
-            <div className="flex justify-end">
-              <Link
-                href={`/profiles/${profile.id}`}
-                className="px-6 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
-              >
-                View Profile
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Grid view layout (original)
-
-  return (
-    <div
-      className={`bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow p-6 border-l-4 ${colorClass}`}
-    >
-      <div className="flex items-start gap-2">
-        {/* Profile Info (no avatar per Figma) */}
-        <div className="flex-1 min-w-0">
-          {/* Name and Profession */}
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {profile.first_name} {profile.last_initial}.
-              </h3>
-              <p className="text-sm text-gray-600">
-                {profile.profession_type || 'Property Maintenance'}
-              </p>
-            </div>
-            <button className="shrink-0 w-8 h-8 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center hover:bg-[#2d5a8f] transition-colors">
+            <button
+              className="shrink-0 w-8 h-8 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center hover:bg-[#2d5a8f] transition-colors"
+              aria-label="Bookmark"
+            >
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -141,7 +107,126 @@ export default function ProfileCard({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M9 5l7 7-7 7"
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* Bio Snippet or Full Bio */}
+          <div className="text-sm text-gray-700">
+            <p className="leading-relaxed">
+              {isExpanded ? profile.professional_summary : bioSnippet}
+            </p>
+          </div>
+
+          {/* Stats (show when expanded) */}
+          {isExpanded && (
+            <div className="flex flex-wrap gap-4 text-sm text-gray-700 pb-3 border-b border-gray-200">
+              <div>
+                <span className="font-semibold">Office:</span>{' '}
+                <span className="text-gray-600">{profile.office}</span>
+              </div>
+              {profile.skills && profile.skills.length > 0 && (
+                <div>
+                  <span className="font-semibold">Skills:</span>{' '}
+                  <span className="text-gray-600">
+                    {profile.skills.join(', ')}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bottom row: Read More + Request Button */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-[#1e3a5f] hover:text-[#2d5a8f] font-medium text-sm inline-flex items-center gap-1 transition-colors"
+            >
+              {isExpanded ? (
+                <>
+                  Read Less
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 15l7-7 7 7"
+                    />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Read More About {fullName}
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {/* Request Associate Button (always visible in list view per Figma) */}
+            <button className="px-4 py-2 bg-[#1e3a5f] hover:bg-[#2d5a8f] text-white rounded-lg font-medium text-sm transition-colors">
+              Request Associate
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Grid view layout with expandable bio
+
+  return (
+    <div
+      className={`bg-white rounded-lg shadow-md hover:shadow-xl transition-all p-6 border-l-4 ${colorClass} ${
+        isExpanded ? 'ring-2 ring-orange-200' : ''
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        {/* Profile Info (no avatar per Figma) */}
+        <div className="flex-1 min-w-0">
+          {/* Name and Profession */}
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {fullName}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {profile.profession_type || 'Property Maintenance'}
+              </p>
+            </div>
+            <button
+              className="shrink-0 w-8 h-8 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center hover:bg-[#2d5a8f] transition-colors"
+              aria-label="Bookmark"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                 />
               </svg>
             </button>
@@ -168,46 +253,83 @@ export default function ProfileCard({
                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
-            {profile.city}, {profile.state}
+            {profile.city}, {profile.state} • {profile.zip_code}
+          </div>
+
+          {/* Bio Snippet or Full Bio */}
+          <div className="text-sm text-gray-700 mb-3">
+            <p className="leading-relaxed">
+              {isExpanded ? profile.professional_summary : bioSnippet}
+            </p>
           </div>
 
           {/* Stats Row */}
-          <div className="flex flex-wrap gap-4 text-sm text-gray-700">
-            <div>
-              <span className="font-semibold">Office:</span>{' '}
-              <span className="text-gray-600">{profile.office}</span>
-            </div>
-            {profile.skills && profile.skills.length > 0 && (
+          {isExpanded && (
+            <div className="flex flex-wrap gap-4 text-sm text-gray-700 mb-3 pb-3 border-b border-gray-200">
               <div>
-                <span className="font-semibold">Skills:</span>{' '}
-                <span className="text-gray-600">
-                  {profile.skills.slice(0, 2).join(', ')}
-                </span>
+                <span className="font-semibold">Office:</span>{' '}
+                <span className="text-gray-600">{profile.office}</span>
               </div>
-            )}
-          </div>
+              {profile.skills && profile.skills.length > 0 && (
+                <div>
+                  <span className="font-semibold">Skills:</span>{' '}
+                  <span className="text-gray-600">
+                    {profile.skills.join(', ')}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* View Profile Link */}
-          <div className="mt-4">
-            <Link
-              href={`/profiles/${profile.id}`}
-              className="text-[#1e3a5f] hover:text-[#2d5a8f] font-medium text-sm inline-flex items-center gap-1"
+          {/* Read More / Read Less Link */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-[#1e3a5f] hover:text-[#2d5a8f] font-medium text-sm inline-flex items-center gap-1 transition-colors"
             >
-              View Full Profile
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
+              {isExpanded ? (
+                <>
+                  Read Less
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 15l7-7 7 7"
+                    />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Read More About {fullName}
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {/* Request Associate Button (show when expanded) */}
+            {isExpanded && (
+              <button className="px-4 py-2 bg-[#1e3a5f] hover:bg-[#2d5a8f] text-white rounded-lg font-medium text-sm transition-colors">
+                Request Associate
+              </button>
+            )}
           </div>
         </div>
       </div>
