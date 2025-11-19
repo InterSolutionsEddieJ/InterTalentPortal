@@ -2,7 +2,6 @@ import HeroSearch from '@/components/home/HeroSearch';
 import SearchFilters from '@/components/search/SearchFilters';
 import SortControls from '@/components/search/SortControls';
 import ProfileResults from '@/components/search/ProfileResults';
-import Pagination from '@/components/search/Pagination';
 import EmptyState from '@/components/ui/EmptyState';
 import { db } from '@/lib/db';
 
@@ -21,7 +20,6 @@ export default async function Home({
   const professionType =
     typeof params.profession === 'string' ? params.profession : undefined;
   const office = typeof params.office === 'string' ? params.office : undefined;
-  const page = typeof params.page === 'string' ? parseInt(params.page) : 1;
   const sortBy =
     typeof params.sortBy === 'string' &&
     ['name', 'location', 'profession'].includes(params.sortBy)
@@ -32,7 +30,10 @@ export default async function Home({
     ['asc', 'desc'].includes(params.sortDirection)
       ? (params.sortDirection as 'asc' | 'desc')
       : 'asc';
-  const limit = 5; // Changed from 20 to match Figma design (Phase 1)
+
+  // Fetch a larger batch (client will handle incremental display via "Show More")
+  const limit = 100; // Fetch up to 100 results, ProfileResults will show 5 at a time
+  const page = 1; // Always page 1 since we're doing client-side pagination
 
   // Fetch profiles - either search or get all
   let result;
@@ -94,17 +95,7 @@ export default async function Home({
 
             {/* Profile Cards or Empty State */}
             {result.profiles.length > 0 ? (
-              <>
-                <ProfileResults profiles={result.profiles} />
-
-                {/* Pagination */}
-                <Pagination
-                  currentPage={result.page}
-                  totalPages={result.totalPages}
-                  totalResults={result.total}
-                  resultsPerPage={result.limit}
-                />
-              </>
+              <ProfileResults profiles={result.profiles} initialDisplay={5} />
             ) : (
               <EmptyState
                 title="No candidates found"
