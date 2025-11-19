@@ -22,17 +22,26 @@ export default function HeroSearch() {
   };
 
   return (
-    <section className="relative bg-linear-to-br from-[#1e3a5f] to-[#2d5a8f] text-white">
-      {/* Background overlay pattern (optional) */}
-      <div className="absolute inset-0 bg-black/20"></div>
+    <section className="relative bg-[#1e3a5f] text-white overflow-hidden">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: 'url(/bg-hero1.jpg)' }}
+      />
+      
+      {/* Dark overlay for text readability */}
+      <div className="absolute inset-0 bg-black/40"></div>
 
-      <div className="relative container mx-auto px-4 py-20">
+      <div className="relative container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto text-center">
+          {/* Small label */}
+          <p className="text-sm text-gray-200 mb-2 tracking-wide">Discover Talent</p>
+          
           {/* Title */}
-          <h1 className="text-5xl font-bold mb-4">Search Candidates</h1>
+          <h1 className="text-5xl font-bold mb-3">Search Candidates</h1>
 
           {/* Subtitle */}
-          <p className="text-xl text-gray-200 mb-12">
+          <p className="text-lg text-gray-200 mb-8">
             Find the right Maintenance Professional for employers to hire.
           </p>
 

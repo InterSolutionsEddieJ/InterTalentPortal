@@ -35,13 +35,24 @@ export default function ProfileCard({
     isExpanded
   );
 
+  // Strip HTML tags from bio text
+  const stripHtml = (html: string) => {
+    if (!html) return '';
+    // Remove HTML tags but preserve text content
+    return html
+      .replace(/<[^>]*>/g, ' ') // Replace tags with space
+      .replace(/\s+/g, ' ') // Normalize multiple spaces
+      .trim();
+  };
+
   // Truncate bio to ~2 sentences for collapsed state
   const getBioSnippet = (bio: string, maxLength: number = 120) => {
-    if (!bio) return '';
-    if (bio.length <= maxLength) return bio;
+    const cleanBio = stripHtml(bio);
+    if (!cleanBio) return '';
+    if (cleanBio.length <= maxLength) return cleanBio;
 
     // Try to cut at sentence end
-    const snippet = bio.substring(0, maxLength);
+    const snippet = cleanBio.substring(0, maxLength);
     const lastPeriod = snippet.lastIndexOf('.');
     if (lastPeriod > 60) {
       return snippet.substring(0, lastPeriod + 1);
@@ -50,17 +61,19 @@ export default function ProfileCard({
   };
 
   const bioSnippet = getBioSnippet(profile.professional_summary || '');
+  const cleanFullBio = stripHtml(profile.professional_summary || '');
   const fullName = `${profile.first_name} ${profile.last_initial}.`;
+  const firstInitial = profile.first_name?.[0]?.toUpperCase() || 'P';
 
   // List view layout with expandable bio
   if (variant === 'list') {
     return (
       <div
-        className={`bg-white rounded-lg shadow-md hover:shadow-xl transition-all p-6 border-l-4 ${colorClass} ${
+        className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-5 border-l-4 ${colorClass} ${
           isExpanded ? 'ring-2 ring-orange-200' : ''
         }`}
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {/* Top row: Name, Location, Bookmark */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
@@ -94,29 +107,18 @@ export default function ProfileCard({
               </div>
             </div>
             <button
-              className="shrink-0 w-8 h-8 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center hover:bg-[#2d5a8f] transition-colors"
+              className="shrink-0 w-10 h-10 rounded-full bg-[#29456b] text-white flex items-center justify-center hover:bg-[#1e3a5f] transition-colors text-sm font-semibold"
               aria-label="Bookmark"
+              title={`Bookmark ${fullName}`}
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                />
-              </svg>
+              {firstInitial}
             </button>
           </div>
 
           {/* Bio Snippet or Full Bio */}
           <div className="text-sm text-gray-700">
             <p className="leading-relaxed">
-              {isExpanded ? profile.professional_summary : bioSnippet}
+              {isExpanded ? cleanFullBio : bioSnippet}
             </p>
           </div>
 
@@ -195,7 +197,7 @@ export default function ProfileCard({
 
   return (
     <div
-      className={`bg-white rounded-lg shadow-md hover:shadow-xl transition-all p-6 border-l-4 ${colorClass} ${
+      className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-5 border-l-4 ${colorClass} ${
         isExpanded ? 'ring-2 ring-orange-200' : ''
       }`}
     >
@@ -213,22 +215,11 @@ export default function ProfileCard({
               </p>
             </div>
             <button
-              className="shrink-0 w-8 h-8 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center hover:bg-[#2d5a8f] transition-colors"
+              className="shrink-0 w-10 h-10 rounded-full bg-[#29456b] text-white flex items-center justify-center hover:bg-[#1e3a5f] transition-colors text-sm font-semibold"
               aria-label="Bookmark"
+              title={`Bookmark ${fullName}`}
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                />
-              </svg>
+              {firstInitial}
             </button>
           </div>
 
@@ -259,7 +250,7 @@ export default function ProfileCard({
           {/* Bio Snippet or Full Bio */}
           <div className="text-sm text-gray-700 mb-3">
             <p className="leading-relaxed">
-              {isExpanded ? profile.professional_summary : bioSnippet}
+              {isExpanded ? cleanFullBio : bioSnippet}
             </p>
           </div>
 
