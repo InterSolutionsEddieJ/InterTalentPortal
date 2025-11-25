@@ -36,9 +36,6 @@ export default function HeroSearch() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Show loading overlay
-    setIsLoading(true);
-
     // Parse location before building query params
     parseLocation();
 
@@ -59,7 +56,15 @@ export default function HeroSearch() {
 
       // Build query params from store
       const params = buildQueryParams();
-      router.push(`/?${params.toString()}`);
+      const newSearch = params.toString();
+
+      // Only show loading and navigate if the search is actually different
+      // This prevents unnecessary loading states when clicking search without changes
+      const currentSearch = window.location.search.substring(1);
+      if (newSearch !== currentSearch) {
+        setIsLoading(true);
+        router.push(`/?${newSearch}`);
+      }
     }, 0);
   };
 

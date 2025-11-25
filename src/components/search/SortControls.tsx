@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useSearchStore } from '@/store/searchStore';
 
 type SortOption = 'name' | 'location' | 'profession';
 type SortDirection = 'asc' | 'desc';
@@ -9,6 +10,7 @@ type SortDirection = 'asc' | 'desc';
 export default function SortControls() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const setIsLoading = useSearchStore((state) => state.setIsLoading);
 
   // Initialize from URL params directly
   const urlSortBy = searchParams.get('sortBy') as SortOption;
@@ -31,6 +33,7 @@ export default function SortControls() {
   };
 
   const applySort = (sortBy: SortOption, direction: SortDirection) => {
+    setIsLoading(true);
     const params = new URLSearchParams(searchParams.toString());
 
     params.set('sortBy', sortBy);

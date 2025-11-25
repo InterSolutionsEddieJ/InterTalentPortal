@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchStore } from '@/store/searchStore';
 
 interface PaginationProps {
   currentPage: number;
@@ -17,8 +18,10 @@ export default function Pagination({
 }: PaginationProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const setIsLoading = useSearchStore((state) => state.setIsLoading);
 
   const goToPage = (page: number) => {
+    setIsLoading(true);
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', page.toString());
     router.push(`/?${params.toString()}`);

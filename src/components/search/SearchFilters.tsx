@@ -60,8 +60,6 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
   }, []);
 
   const applyFilters = () => {
-    setIsLoading(true);
-
     // Add keyword to array if input is not empty
     if (keywordInput.trim()) {
       addKeyword(keywordInput.trim());
@@ -77,18 +75,51 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
     // Use setTimeout to ensure state updates before building params
     setTimeout(() => {
       const params = buildQueryParams();
-      router.push(`/?${params.toString()}`);
-    }, 0);
+      const newSearch = params.toString();
+
+      // Only show loading and navigate if the search is actually different
+      const currentSearch = window.location.search.substring(1);
+      if (newSearch !== currentSearch) {
+        setIsLoading(true);
+        router.push(`/?${newSearch}`);
+      }
+    }, 50);
   };
 
   const handleRemoveKeyword = (keyword: string) => {
-    // Just remove from array, don't trigger search
+    // Remove from array and trigger search
     removeKeyword(keyword);
+
+    // Trigger search after state updates
+    setTimeout(() => {
+      const params = buildQueryParams();
+      const newSearch = params.toString();
+
+      // Only show loading and navigate if the search is different
+      const currentSearch = window.location.search.substring(1);
+      if (newSearch !== currentSearch) {
+        setIsLoading(true);
+        router.push(`/?${newSearch}`);
+      }
+    }, 50);
   };
 
   const handleRemoveZipCode = (zipCode: string) => {
-    // Just remove from array, don't trigger search
+    // Remove from array and trigger search
     removeZipCode(zipCode);
+
+    // Trigger search after state updates
+    setTimeout(() => {
+      const params = buildQueryParams();
+      const newSearch = params.toString();
+
+      // Only show loading and navigate if the search is different
+      const currentSearch = window.location.search.substring(1);
+      if (newSearch !== currentSearch) {
+        setIsLoading(true);
+        router.push(`/?${newSearch}`);
+      }
+    }, 50);
   };
 
   return (
