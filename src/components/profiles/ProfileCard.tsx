@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Profile } from '@/lib/db/supabase';
 import { useSearchStore } from '@/store/searchStore';
 import ContactModal from '@/components/contact/ContactModal';
+import { highlightKeywords } from '@/utils/highlightText';
 
 interface ProfileCardProps {
   profile: Profile;
@@ -20,6 +21,7 @@ export default function ProfileCard({
   // Bookmark state from Zustand store
   const bookmarkedIds = useSearchStore((state) => state.bookmarkedIds);
   const toggleBookmark = useSearchStore((state) => state.toggleBookmark);
+  const keywords = useSearchStore((state) => state.keywords); // Get keywords for highlighting
   const isBookmarked = bookmarkedIds.includes(profile.id); // Determine color based on profession type (default) or orange when expanded
   const getColorClass = (professionType: string, expanded: boolean) => {
     if (expanded) return 'border-l-orange-500'; // Orange when expanded per Figma
@@ -162,7 +164,9 @@ export default function ProfileCard({
           {/* Bio */}
           <div className="text-sm text-gray-700 mb-4">
             <p className="leading-relaxed">
-              {isExpanded ? cleanFullBio : bioSnippet}
+              {isExpanded
+                ? highlightKeywords(cleanFullBio, keywords)
+                : highlightKeywords(bioSnippet, keywords)}
             </p>
           </div>
 
@@ -285,7 +289,9 @@ export default function ProfileCard({
           {/* Bio Snippet or Full Bio */}
           <div className="text-sm text-gray-700 mb-4">
             <p className="leading-relaxed">
-              {isExpanded ? cleanFullBio : bioSnippet}
+              {isExpanded
+                ? highlightKeywords(cleanFullBio, keywords)
+                : highlightKeywords(bioSnippet, keywords)}
             </p>
           </div>
 

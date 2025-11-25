@@ -21,6 +21,7 @@ export default function SearchParamsSyncer() {
   const setZipCode = useSearchStore((state) => state.setZipCode);
   const setKeywords = useSearchStore((state) => state.setKeywords);
   const setRadius = useSearchStore((state) => state.setRadius);
+  const setRadiusEnabled = useSearchStore((state) => state.setRadiusEnabled);
   const setSelectedProfessions = useSearchStore(
     (state) => state.setSelectedProfessions
   );
@@ -39,7 +40,9 @@ export default function SearchParamsSyncer() {
     const state = searchParams.get('state') || '';
     const zip = searchParams.get('zip') || '';
     const keywords = searchParams.get('keywords') || '';
-    const radius = parseInt(searchParams.get('radius') || '10');
+    const radiusParam = searchParams.get('radius');
+    const radius = radiusParam ? parseInt(radiusParam) : 10;
+    const radiusEnabled = radiusParam !== null; // If radius in URL, it's enabled
     const professions =
       searchParams.get('professions')?.split(',').filter(Boolean) || [];
     const showBookmarks = searchParams.get('bookmarks') === 'true';
@@ -51,6 +54,7 @@ export default function SearchParamsSyncer() {
     setZipCode(zip);
     setKeywords(keywords);
     setRadius(radius);
+    setRadiusEnabled(radiusEnabled);
     setSelectedProfessions(professions);
     setShowBookmarksOnly(showBookmarks);
 

@@ -19,6 +19,7 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
   const keywords = useSearchStore((state) => state.keywords);
   const zipCode = useSearchStore((state) => state.zipCode);
   const radius = useSearchStore((state) => state.radius);
+  const radiusEnabled = useSearchStore((state) => state.radiusEnabled);
   const selectedProfessions = useSearchStore(
     (state) => state.selectedProfessions
   );
@@ -26,9 +27,11 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
   const setKeywords = useSearchStore((state) => state.setKeywords);
   const setZipCode = useSearchStore((state) => state.setZipCode);
   const setRadius = useSearchStore((state) => state.setRadius);
+  const setRadiusEnabled = useSearchStore((state) => state.setRadiusEnabled);
   const toggleProfession = useSearchStore((state) => state.toggleProfession);
   const clearFilters = useSearchStore((state) => state.clearFilters);
   const buildQueryParams = useSearchStore((state) => state.buildQueryParams);
+  const setIsLoading = useSearchStore((state) => state.setIsLoading);
 
   // Fetch filter options on mount
   useEffect(() => {
@@ -48,11 +51,13 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
   }, []);
 
   const applyFilters = () => {
+    setIsLoading(true);
     const params = buildQueryParams();
     router.push(`/?${params.toString()}`);
   };
 
   const handleClearFilters = () => {
+    setIsLoading(true);
     clearFilters();
     router.push('/');
   };
@@ -153,12 +158,35 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
           )}
         </div>
 
-        {/* Radius Slider */}
+        {/* Radius Slider with Toggle */}
         <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-3">
-            Radius ({radius} mi.)
-          </label>
-          <div className="px-1">
+          <div className="flex items-center justify-between mb-3">
+            <label
+              className={`text-sm font-semibold ${radiusEnabled ? 'text-gray-900' : 'text-gray-400'}`}
+            >
+              Radius ({radius} mi.)
+            </label>
+            {/* Toggle Switch */}
+            <button
+              onClick={() => setRadiusEnabled(!radiusEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] focus:ring-offset-2 ${
+                radiusEnabled ? 'bg-[#1e3a5f]' : 'bg-gray-300'
+              }`}
+              role="switch"
+              aria-checked={radiusEnabled}
+              aria-label="Toggle radius search"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  radiusEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div
+            className={`px-1 ${!radiusEnabled && 'opacity-40 pointer-events-none'}`}
+          >
             <div className="relative">
               {/* Background track */}
               <div className="absolute top-1/2 -translate-y-1/2 w-full h-1 bg-gray-300 rounded-full" />
@@ -175,7 +203,8 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
                 step="1"
                 value={radius}
                 onChange={(e) => setRadius(Number(e.target.value))}
-                className="relative w-full appearance-none bg-transparent cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#1e3a5f] [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#1e3a5f] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+                disabled={!radiusEnabled}
+                className="relative w-full appearance-none bg-transparent cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#1e3a5f] [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#1e3a5f] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer disabled:cursor-not-allowed"
                 style={{ zIndex: 10 }}
               />
             </div>

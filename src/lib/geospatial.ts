@@ -12,6 +12,7 @@ export interface ZipLocation {
   zip: string;
   lat: number;
   lng: number;
+  state?: string; // State abbreviation (e.g., "TX", "CA")
 }
 
 /**
@@ -44,16 +45,24 @@ function toRad(degrees: number): number {
 }
 
 /**
- * Get lat/lng for a zip code
+ * Get lat/lng for a zip code, city, or city+state combination
  * Uses free ZipCodeAPI (https://www.zippopotam.us/)
- * Falls back to approximate calculation
+ * Falls back to approximate calculation for zip codes
  */
 export async function getZipLocation(
   zipCode: string
 ): Promise<ZipLocation | null> {
   try {
+    // Add timeout for API call - increased to 10s for slower networks
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     // Try ZipCodeAPI first
-    const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`);
+    const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const data = await response.json();
@@ -62,16 +71,101 @@ export async function getZipLocation(
           zip: zipCode,
           lat: parseFloat(data.places[0].latitude),
           lng: parseFloat(data.places[0].longitude),
+          state: data.places[0]['state abbreviation'], // Extract state abbreviation
         };
       }
     }
   } catch (error) {
-    console.warn('Zip code API failed, using fallback:', error);
+    // Only log if it's not a timeout - timeouts are expected for invalid zips
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.warn('Zip code API failed:', error.message);
+    }
   }
 
   // Fallback: approximate based on first 3 digits
   // This is VERY rough and only for demo purposes
   return getApproximateZipLocation(zipCode);
+}
+
+/**
+ * Get lat/lng for a city and state combination
+ * Uses Nominatim (OpenStreetMap) geocoding API
+ */
+export async function getCityLocation(
+  city: string,
+  state?: string
+): Promise<ZipLocation | null> {
+  try {
+    // Build query: "City, State, USA" format
+    const query = state ? `${city}, ${state}, USA` : `${city}, USA`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    // Add featuretype=city to only get cities, not streets or other features
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?` +
+        `q=${encodeURIComponent(query)}` +
+        `&format=json` +
+        `&limit=5` + // Get more results to filter
+        `&addressdetails=1` + // Get full address details
+        `&featuretype=settlement`, // Only cities/towns/villages
+      {
+        headers: {
+          'User-Agent': 'InterTalentPortal/1.0', // Required by Nominatim
+        },
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Geocoding API results:', data);
+
+      if (data && data.length > 0) {
+        // Filter results to find a city/town in the correct state
+        let bestMatch = null;
+
+        if (state) {
+          // Try to find a result that matches the state
+          const stateMatch = data.find((result: any) => {
+            const address = result.address;
+            // Check if state matches (address.state could be full name or abbreviation)
+            return (
+              address &&
+              (address.state?.toUpperCase() === state.toUpperCase() ||
+                address.state?.substring(0, 2).toUpperCase() ===
+                  state.toUpperCase())
+            );
+          });
+
+          if (stateMatch) {
+            bestMatch = stateMatch;
+            console.log(`Found city in ${state}:`, bestMatch.display_name);
+          } else {
+            console.warn(`City '${city}' not found in ${state}`);
+            return null; // Don't use a location in the wrong state
+          }
+        } else {
+          bestMatch = data[0]; // No state filter, use first result
+        }
+
+        if (bestMatch) {
+          return {
+            zip: `${city}, ${state || 'USA'}`, // Use city as identifier
+            lat: parseFloat(bestMatch.lat),
+            lng: parseFloat(bestMatch.lon),
+          };
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('City geocoding API failed:', error);
+  }
+
+  return null;
 }
 
 /**
@@ -163,40 +257,136 @@ function getApproximateZipLocation(zipCode: string): ZipLocation | null {
 }
 
 /**
- * Get profiles within radius of a zip code
+ * OPTIMIZED: Get all zip codes within a radius of a center zip code
+ * Uses ziptastic API or similar service that provides bulk zip code lookups
+ * This avoids geocoding every profile individually
+ *
+ * @param centerZip - The center zip code
+ * @param radiusMiles - Radius in miles
+ * @returns Array of zip codes within the radius, or null if API fails
+ */
+export async function getZipCodesWithinRadius(
+  centerZip: string,
+  radiusMiles: number
+): Promise<string[] | null> {
+  try {
+    // Get center location first
+    const centerLocation = await getZipLocation(centerZip);
+    if (!centerLocation) {
+      console.warn(`Could not geocode center zip: ${centerZip}`);
+      return null;
+    }
+
+    console.log(
+      `Finding zip codes within ${radiusMiles} miles of ${centerZip} (${centerLocation.lat}, ${centerLocation.lng})`
+    );
+
+    // Calculate bounding box (simple approximation)
+    // 1 degree latitude ≈ 69 miles
+    // 1 degree longitude ≈ 69 miles * cos(latitude)
+    const latDelta = radiusMiles / 69;
+    const lngDelta = radiusMiles / (69 * Math.cos(toRad(centerLocation.lat)));
+
+    const minLat = centerLocation.lat - latDelta;
+    const maxLat = centerLocation.lat + latDelta;
+    const minLng = centerLocation.lng - lngDelta;
+    const maxLng = centerLocation.lng + lngDelta;
+
+    console.log(
+      `Bounding box: lat ${minLat.toFixed(2)} to ${maxLat.toFixed(2)}, lng ${minLng.toFixed(2)} to ${maxLng.toFixed(2)}`
+    );
+
+    // Option 1: Use a zip code radius API (recommended for production)
+    // Example: ZipCodeAPI.com, GeoNames.org, or your own zip code database
+    // For now, we'll use a free service if available, or return null to fall back
+
+    try {
+      // Try using ZipCodeAPI radius search (if you have an API key)
+      // const response = await fetch(
+      //   `https://www.zipcodeapi.com/rest/YOUR_API_KEY/radius.json/${centerZip}/${radiusMiles}/mile`
+      // );
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   return data.zip_codes.map((z: any) => z.zip_code);
+      // }
+
+      // Without paid API, return null to use fallback method
+      console.log('No zip code radius API configured - using fallback method');
+      return null;
+    } catch (apiError) {
+      console.warn('Zip code radius API failed:', apiError);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error in getZipCodesWithinRadius:', error);
+    return null;
+  }
+}
+
+/**
+ * Get profiles within radius of a zip code or city
  * Returns profile IDs that match the distance criteria
+ * @param centerLocation - Zip code or city name to use as center
+ * @param radiusMiles - Radius in miles
+ * @param profileData - Array of profiles with location data
+ * @param centerCoords - Optional pre-geocoded center coordinates (for city searches)
  */
 export async function getProfilesWithinRadius(
-  centerZip: string,
+  centerLocation: string,
   radiusMiles: number,
-  profileZips: { id: string; zip_code: string }[]
+  profileData: Array<{
+    id: string;
+    zip_code: string;
+    city?: string;
+    state?: string;
+  }>,
+  centerCoords?: ZipLocation
 ): Promise<string[]> {
-  // Get center location
-  const centerLocation = await getZipLocation(centerZip);
-  if (!centerLocation) {
-    console.warn('Could not geocode center zip:', centerZip);
+  // Get center location (either use provided coords or geocode the zip)
+  const centerLocationData =
+    centerCoords || (await getZipLocation(centerLocation));
+
+  if (!centerLocationData) {
+    console.warn('Could not geocode center location:', centerLocation);
     return [];
   }
 
   // Get locations for all profile zips (cache in production!)
   const profileLocations = await Promise.all(
-    profileZips.map(async (profile) => {
+    profileData.map(async (profile) => {
       const location = await getZipLocation(profile.zip_code);
-      return { id: profile.id, location };
+      if (!location) {
+        console.warn(
+          `Failed to geocode zip: ${profile.zip_code} for profile ${profile.id}`
+        );
+      }
+      return { id: profile.id, location, zipCode: profile.zip_code };
     })
+  );
+
+  console.log(`Center location (${centerLocation}):`, centerLocationData);
+  console.log(
+    `Checking ${profileLocations.length} profiles within ${radiusMiles} miles`
   );
 
   // Filter by distance
   const matchingIds = profileLocations
-    .filter(({ location }) => {
-      if (!location) return false;
+    .filter(({ location, zipCode, id }) => {
+      if (!location) {
+        console.log(`Profile ${id} excluded: no location for zip ${zipCode}`);
+        return false;
+      }
       const distance = calculateDistance(
-        centerLocation.lat,
-        centerLocation.lng,
+        centerLocationData.lat,
+        centerLocationData.lng,
         location.lat,
         location.lng
       );
-      return distance <= radiusMiles;
+      const matches = distance <= radiusMiles;
+      console.log(
+        `Profile ${id} (${zipCode}): ${distance.toFixed(2)} miles - ${matches ? 'INCLUDED' : 'excluded'}`
+      );
+      return matches;
     })
     .map(({ id }) => id);
 

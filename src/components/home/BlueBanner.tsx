@@ -10,8 +10,8 @@ export default function BlueBanner() {
 
   return (
     <div className="bg-[#042A4A] text-white border-b-2 border-[rgba(255,255,255,0.2)]">
-      <div className="mx-auto px-20 py-6 max-w-[1440px] min-h-[62px] flex items-center justify-between">
-        <p className="text-center text-lg font-medium flex-1">
+      <div className="mx-auto px-4 md:px-20 py-6 md:py-6 max-w-[1440px] min-h-[62px] flex flex-col md:flex-row items-center justify-center md:justify-between gap-4">
+        <p className="text-center text-base md:text-lg font-medium md:flex-1">
           {showBookmarksOnly ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">

@@ -15,6 +15,7 @@ export default function HeroSearch() {
   const setLocation = useSearchStore((state) => state.setLocation);
   const parseLocation = useSearchStore((state) => state.parseLocation);
   const buildQueryParams = useSearchStore((state) => state.buildQueryParams);
+  const setIsLoading = useSearchStore((state) => state.setIsLoading);
 
   // Fetch professions on mount
   useEffect(() => {
@@ -32,6 +33,9 @@ export default function HeroSearch() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Show loading overlay
+    setIsLoading(true);
 
     // Parse location before building query params
     parseLocation();

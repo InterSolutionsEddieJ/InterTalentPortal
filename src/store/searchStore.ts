@@ -6,6 +6,61 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// US State name to code mapping
+const STATE_NAME_TO_CODE: Record<string, string> = {
+  ALABAMA: 'AL',
+  ALASKA: 'AK',
+  ARIZONA: 'AZ',
+  ARKANSAS: 'AR',
+  CALIFORNIA: 'CA',
+  COLORADO: 'CO',
+  CONNECTICUT: 'CT',
+  DELAWARE: 'DE',
+  FLORIDA: 'FL',
+  GEORGIA: 'GA',
+  HAWAII: 'HI',
+  IDAHO: 'ID',
+  ILLINOIS: 'IL',
+  INDIANA: 'IN',
+  IOWA: 'IA',
+  KANSAS: 'KS',
+  KENTUCKY: 'KY',
+  LOUISIANA: 'LA',
+  MAINE: 'ME',
+  MARYLAND: 'MD',
+  MASSACHUSETTS: 'MA',
+  MICHIGAN: 'MI',
+  MINNESOTA: 'MN',
+  MISSISSIPPI: 'MS',
+  MISSOURI: 'MO',
+  MONTANA: 'MT',
+  NEBRASKA: 'NE',
+  NEVADA: 'NV',
+  'NEW HAMPSHIRE': 'NH',
+  'NEW JERSEY': 'NJ',
+  'NEW MEXICO': 'NM',
+  'NEW YORK': 'NY',
+  'NORTH CAROLINA': 'NC',
+  'NORTH DAKOTA': 'ND',
+  OHIO: 'OH',
+  OKLAHOMA: 'OK',
+  OREGON: 'OR',
+  PENNSYLVANIA: 'PA',
+  'RHODE ISLAND': 'RI',
+  'SOUTH CAROLINA': 'SC',
+  'SOUTH DAKOTA': 'SD',
+  TENNESSEE: 'TN',
+  TEXAS: 'TX',
+  UTAH: 'UT',
+  VERMONT: 'VT',
+  VIRGINIA: 'VA',
+  WASHINGTON: 'WA',
+  'WEST VIRGINIA': 'WV',
+  WISCONSIN: 'WI',
+  WYOMING: 'WY',
+  'DISTRICT OF COLUMBIA': 'DC',
+};
+
 export interface SearchFilters {
   // Hero search fields
   profession: string;
@@ -19,11 +74,15 @@ export interface SearchFilters {
   // Filter sidebar fields
   keywords: string;
   radius: number;
+  radiusEnabled: boolean; // Toggle for radius search
   selectedProfessions: string[];
 
   // Bookmarks (Phase 6)
   bookmarkedIds: string[];
   showBookmarksOnly: boolean;
+
+  // Loading state
+  isLoading: boolean;
 }
 
 interface SearchStore extends SearchFilters {
@@ -35,12 +94,16 @@ interface SearchStore extends SearchFilters {
   setZipCode: (zipCode: string) => void;
   setKeywords: (keywords: string) => void;
   setRadius: (radius: number) => void;
+  setRadiusEnabled: (enabled: boolean) => void;
   setSelectedProfessions: (professions: string[]) => void;
   toggleProfession: (profession: string) => void;
 
   // Bookmark actions
   toggleBookmark: (profileId: string) => void;
   setShowBookmarksOnly: (show: boolean) => void;
+
+  // Loading actions
+  setIsLoading: (loading: boolean) => void;
 
   // Utility
   clearFilters: () => void;
@@ -56,9 +119,11 @@ const initialState: SearchFilters = {
   zipCode: '',
   keywords: '',
   radius: 10,
+  radiusEnabled: false, // Disabled by default for exact match
   selectedProfessions: [],
   bookmarkedIds: [],
   showBookmarksOnly: false,
+  isLoading: false,
 };
 
 export const useSearchStore = create<SearchStore>()(
@@ -75,6 +140,7 @@ export const useSearchStore = create<SearchStore>()(
       setZipCode: (zipCode) => set({ zipCode }),
       setKeywords: (keywords) => set({ keywords }),
       setRadius: (radius) => set({ radius }),
+      setRadiusEnabled: (enabled) => set({ radiusEnabled: enabled }),
       setSelectedProfessions: (professions) =>
         set({ selectedProfessions: professions }),
 
@@ -94,6 +160,8 @@ export const useSearchStore = create<SearchStore>()(
 
       setShowBookmarksOnly: (show) => set({ showBookmarksOnly: show }),
 
+      setIsLoading: (loading) => set({ isLoading: loading }),
+
       clearFilters: () =>
         set({
           ...initialState,
@@ -105,7 +173,8 @@ export const useSearchStore = create<SearchStore>()(
        * Examples:
        * - "60007" -> zipCode: "60007"
        * - "Chicago" -> city: "Chicago"
-       * - "IL" -> state: "IL"
+       * - "IL" or "Illinois" -> state: "IL"
+       * - "CA" or "California" -> state: "CA"
        * - "Chicago, IL" -> city: "Chicago", state: "IL"
        */
       parseLocation: () => {
@@ -123,19 +192,38 @@ export const useSearchStore = create<SearchStore>()(
           return;
         }
 
-        // Check if it's a state code (2 letters)
-        const stateMatch = location.match(/^[A-Z]{2}$/i);
-        if (stateMatch) {
-          set({ state: location.toUpperCase(), city: '', zipCode: '' });
+        // Check if it's a state code (2 letters) or state name
+        const upperLocation = location.toUpperCase();
+        const stateCodeMatch = location.match(/^[A-Z]{2}$/i);
+
+        if (stateCodeMatch) {
+          // Direct state code (e.g., "CA", "IL")
+          set({ state: upperLocation, city: '', zipCode: '' });
+          return;
+        }
+
+        // Check if it's a full state name (e.g., "California", "Illinois")
+        if (STATE_NAME_TO_CODE[upperLocation]) {
+          set({
+            state: STATE_NAME_TO_CODE[upperLocation],
+            city: '',
+            zipCode: '',
+          });
           return;
         }
 
         // Check for "City, State" pattern
-        const cityStateMatch = location.match(/^([^,]+),\s*([A-Z]{2})$/i);
+        const cityStateMatch = location.match(/^([^,]+),\s*([A-Za-z\s]{2,})$/i);
         if (cityStateMatch) {
+          const cityPart = cityStateMatch[1].trim();
+          const statePart = cityStateMatch[2].trim().toUpperCase();
+
+          // Try to convert state name to code if it's a full name
+          const stateCode = STATE_NAME_TO_CODE[statePart] || statePart;
+
           set({
-            city: cityStateMatch[1].trim(),
-            state: cityStateMatch[2].toUpperCase(),
+            city: cityPart,
+            state: stateCode,
             zipCode: '',
           });
           return;
@@ -157,7 +245,12 @@ export const useSearchStore = create<SearchStore>()(
         if (state.state) params.set('state', state.state);
         if (state.zipCode) params.set('zip', state.zipCode);
         if (state.keywords) params.set('keywords', state.keywords);
-        if (state.radius !== 10) params.set('radius', state.radius.toString());
+
+        // Only add radius if it's enabled
+        if (state.radiusEnabled && state.radius > 0) {
+          params.set('radius', state.radius.toString());
+        }
+
         if (state.selectedProfessions.length > 0) {
           params.set('professions', state.selectedProfessions.join(','));
         }
