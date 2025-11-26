@@ -212,24 +212,30 @@ export class PostgresDatabase implements IDatabase {
 
       radiusSearchAttempted = true;
 
+      // Get the zip code from either zipCode or zipCodes[0]
+      const effectiveZipCode =
+        zipCode || (zipCodes && zipCodes.length > 0 ? zipCodes[0] : null);
+
       // Determine center point for radius search
-      if (zipCode) {
+      if (effectiveZipCode) {
         // Best case: zip code provided
-        centerLocation = zipCode;
+        centerLocation = effectiveZipCode;
 
         // If no state provided, try to get state from zip code lookup
         // This is crucial for reducing geocoding load from 1000+ to ~100-200
         if (!stateFilter) {
           try {
-            const zipLocation = await getZipLocation(zipCode);
+            const zipLocation = await getZipLocation(effectiveZipCode);
             if (zipLocation && zipLocation.state) {
               stateFilter = zipLocation.state;
               console.log(
-                `Extracted state '${stateFilter}' from zip code ${zipCode}`
+                `Extracted state '${stateFilter}' from zip code ${effectiveZipCode}`
               );
             }
           } catch {
-            console.warn(`Could not extract state from zip ${zipCode}`);
+            console.warn(
+              `Could not extract state from zip ${effectiveZipCode}`
+            );
           }
         }
       } else if (city) {
@@ -243,13 +249,13 @@ export class PostgresDatabase implements IDatabase {
         try {
           // OPTIMIZATION: For zip-based searches, try to get nearby zip codes first
           // This avoids geocoding thousands of profiles
-          if (zipCode) {
+          if (effectiveZipCode) {
             console.log(
-              `Attempting optimized zip code radius search for ${zipCode} within ${params.radius} miles`
+              `Attempting optimized zip code radius search for ${effectiveZipCode} within ${params.radius} miles`
             );
 
             const nearbyZipCodes = await getZipCodesWithinRadius(
-              zipCode,
+              effectiveZipCode,
               params.radius
             );
 
@@ -369,7 +375,7 @@ export class PostgresDatabase implements IDatabase {
             // 1. Zip + Radius: Don't filter by state (db may have wrong state for zip)
             // 2. City + State + Radius: Filter by state (trust user's state input)
             // 3. City only + Radius: Filter by city name (find all matching cities)
-            if (zipCode) {
+            if (effectiveZipCode) {
               // Zip-based search: Don't filter by state (database may have incorrect state)
               console.log(
                 `Zip-based radius search (fallback) - not filtering by state (relying on geocoding)`
