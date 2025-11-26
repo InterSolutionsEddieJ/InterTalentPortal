@@ -67,24 +67,40 @@ export async function getZipLocation(
     if (response.ok) {
       const data = await response.json();
       if (data.places && data.places[0]) {
-        return {
+        const result = {
           zip: zipCode,
           lat: parseFloat(data.places[0].latitude),
           lng: parseFloat(data.places[0].longitude),
           state: data.places[0]['state abbreviation'], // Extract state abbreviation
         };
+        console.log(
+          `API geocoded ${zipCode}: lat=${result.lat}, lng=${result.lng}, state=${result.state}`
+        );
+        return result;
       }
+    } else {
+      console.warn(
+        `Zip API returned ${response.status} for ${zipCode}, using fallback`
+      );
     }
   } catch (error) {
     // Only log if it's not a timeout - timeouts are expected for invalid zips
     if (error instanceof Error && error.name !== 'AbortError') {
       console.warn('Zip code API failed:', error.message);
+    } else {
+      console.warn(`Zip API timeout for ${zipCode}, using fallback`);
     }
   }
 
   // Fallback: approximate based on first 3 digits
   // This is VERY rough and only for demo purposes
-  return getApproximateZipLocation(zipCode);
+  const fallback = getApproximateZipLocation(zipCode);
+  if (fallback) {
+    console.log(
+      `FALLBACK geocoded ${zipCode}: lat=${fallback.lat}, lng=${fallback.lng} (approximate)`
+    );
+  }
+  return fallback;
 }
 
 /**
@@ -204,10 +220,14 @@ function getApproximateZipLocation(zipCode: string): ZipLocation | null {
     '398-399': { lat: 38.2, lng: -85.7 }, // KY
 
     // Midwest
-    '400-427': { lat: 38.6, lng: -90.2 }, // KY, IN
-    '430-458': { lat: 41.9, lng: -87.6 }, // IN, IL
-    '460-479': { lat: 41.9, lng: -87.6 }, // IL
-    '480-499': { lat: 42.3, lng: -83.0 }, // MI
+    '400-427': { lat: 38.2, lng: -85.7 }, // KY
+    '430-432': { lat: 39.96, lng: -82.99 }, // OH (Columbus)
+    '433-436': { lat: 39.76, lng: -84.19 }, // OH (Dayton)
+    '437-438': { lat: 41.08, lng: -81.52 }, // OH (Akron)
+    '440-449': { lat: 41.5, lng: -81.7 }, // OH (Cleveland/NE Ohio) - includes 44289
+    '450-458': { lat: 39.76, lng: -86.16 }, // IN (Indianapolis)
+    '460-479': { lat: 41.9, lng: -87.6 }, // IL (Chicago)
+    '480-499': { lat: 42.3, lng: -83.0 }, // MI (Detroit)
     '500-528': { lat: 41.6, lng: -93.6 }, // IA
     '530-549': { lat: 43.1, lng: -89.4 }, // WI
     '550-567': { lat: 44.9, lng: -93.3 }, // MN

@@ -212,29 +212,36 @@ export class PostgresDatabase implements IDatabase {
 
       radiusSearchAttempted = true;
 
-      // Get the zip code from either zipCode or zipCodes[0]
-      const effectiveZipCode =
-        zipCode || (zipCodes && zipCodes.length > 0 ? zipCodes[0] : null);
+      // Get the zip codes to search - support multiple center points
+      const centerZipCodes: string[] = [];
+      if (zipCode) {
+        centerZipCodes.push(zipCode);
+      }
+      if (zipCodes && zipCodes.length > 0) {
+        centerZipCodes.push(...zipCodes);
+      }
 
       // Determine center point for radius search
-      if (effectiveZipCode) {
-        // Best case: zip code provided
-        centerLocation = effectiveZipCode;
+      if (centerZipCodes.length > 0) {
+        // Zip code-based search (single or multiple centers)
+        console.log(
+          `Radius search with ${centerZipCodes.length} center zip code(s): ${centerZipCodes.join(', ')}`
+        );
 
-        // If no state provided, try to get state from zip code lookup
-        // This is crucial for reducing geocoding load from 1000+ to ~100-200
-        if (!stateFilter) {
+        // If no state provided, try to get state from first zip code lookup
+        // This is crucial for reducing geocoding load
+        if (!stateFilter && centerZipCodes.length > 0) {
           try {
-            const zipLocation = await getZipLocation(effectiveZipCode);
+            const zipLocation = await getZipLocation(centerZipCodes[0]);
             if (zipLocation && zipLocation.state) {
               stateFilter = zipLocation.state;
               console.log(
-                `Extracted state '${stateFilter}' from zip code ${effectiveZipCode}`
+                `Extracted state '${stateFilter}' from zip code ${centerZipCodes[0]}`
               );
             }
           } catch {
             console.warn(
-              `Could not extract state from zip ${effectiveZipCode}`
+              `Could not extract state from zip ${centerZipCodes[0]}`
             );
           }
         }
@@ -244,93 +251,99 @@ export class PostgresDatabase implements IDatabase {
         useCityGeocode = true;
       }
 
-      // Execute radius search if we have a valid center
-      if (centerLocation) {
+      // Execute radius search if we have valid center(s)
+      if (centerZipCodes.length > 0) {
         try {
-          // OPTIMIZATION: For zip-based searches, try to get nearby zip codes first
+          // OPTIMIZATION: For zip-based searches, get nearby zip codes for ALL center points
           // This avoids geocoding thousands of profiles
-          if (effectiveZipCode) {
-            console.log(
-              `Attempting optimized zip code radius search for ${effectiveZipCode} within ${params.radius} miles`
-            );
+          console.log(
+            `Attempting optimized zip code radius search for ${centerZipCodes.length} center(s) within ${params.radius} miles`
+          );
 
-            const nearbyZipCodes = await getZipCodesWithinRadius(
-              effectiveZipCode,
-              params.radius
-            );
+          // Get nearby zip codes for each center zip code
+          const allNearbyZipCodesArrays = await Promise.all(
+            centerZipCodes.map((centerZip) =>
+              getZipCodesWithinRadius(centerZip, params.radius!)
+            )
+          );
 
-            if (nearbyZipCodes && nearbyZipCodes.length > 0) {
-              // SUCCESS: We have a list of zip codes within radius
-              console.log(
-                `Found ${nearbyZipCodes.length} zip codes within radius - using optimized query`
-              );
-
-              // Build query that filters by these zip codes + other filters
-              let optimizedQuery = this.client
-                .from('profiles')
-                .select('id')
-                .eq('is_active', true)
-                .in('zip_code', nearbyZipCodes);
-
-              // Apply other filters
-              // Apply profession filter
-              if (params.professionTypes && params.professionTypes.length > 0) {
-                const professionConditions = params.professionTypes
-                  .map((p) => `profession_type.ilike.${p}`)
-                  .join(',');
-                optimizedQuery = optimizedQuery.or(professionConditions);
-              }
-              if (office) {
-                optimizedQuery = optimizedQuery.eq('office', office);
-              }
-
-              // Multiple keyword search with OR logic
-              const keywordsToSearch =
-                keywords && keywords.length > 0
-                  ? keywords
-                  : query
-                    ? [query]
-                    : [];
-              if (keywordsToSearch.length > 0) {
-                const allFieldConditions = keywordsToSearch
-                  .flatMap((kw) => [
-                    `professional_summary.ilike.%${kw}%`,
-                    `first_name.ilike.%${kw}%`,
-                    `last_initial.ilike.%${kw}%`,
-                    `city.ilike.%${kw}%`,
-                  ])
-                  .join(',');
-                optimizedQuery = optimizedQuery.or(allFieldConditions);
-              }
-
-              const { data: matchedProfiles } = await optimizedQuery;
-
-              if (matchedProfiles && matchedProfiles.length > 0) {
-                radiusFilteredIds = matchedProfiles.map((p) => p.id);
-                radiusSearchSucceeded = true;
-                console.log(
-                  `Optimized zip search found ${radiusFilteredIds.length} profiles`
-                );
-              } else {
-                // No profiles in those zip codes
-                console.log('No profiles found in nearby zip codes');
-                return {
-                  profiles: [],
-                  total: 0,
-                  page,
-                  limit,
-                  totalPages: 0,
-                };
-              }
-
-              // Skip the rest of the search logic - we're done!
-              // Continue to apply the filter to the main query
-            } else {
-              console.log(
-                'Zip code radius API not available - falling back to geocoding method'
-              );
-              // Fall through to standard geocoding approach
+          // Combine all nearby zip codes from all centers (union)
+          const allNearbyZipCodesSet = new Set<string>();
+          allNearbyZipCodesArrays.forEach((nearbyZips) => {
+            if (nearbyZips && nearbyZips.length > 0) {
+              nearbyZips.forEach((zip) => allNearbyZipCodesSet.add(zip));
             }
+          });
+
+          const allNearbyZipCodes = Array.from(allNearbyZipCodesSet);
+
+          if (allNearbyZipCodes.length > 0) {
+            // SUCCESS: We have a list of zip codes within radius from all centers
+            console.log(
+              `Found ${allNearbyZipCodes.length} unique zip codes within radius from ${centerZipCodes.length} center(s) - using optimized query`
+            );
+
+            // Build query that filters by these zip codes + other filters
+            let optimizedQuery = this.client
+              .from('profiles')
+              .select('id')
+              .eq('is_active', true)
+              .in('zip_code', allNearbyZipCodes);
+
+            // Apply other filters
+            // Apply profession filter
+            if (params.professionTypes && params.professionTypes.length > 0) {
+              const professionConditions = params.professionTypes
+                .map((p) => `profession_type.ilike.${p}`)
+                .join(',');
+              optimizedQuery = optimizedQuery.or(professionConditions);
+            }
+            if (office) {
+              optimizedQuery = optimizedQuery.eq('office', office);
+            }
+
+            // Multiple keyword search with OR logic
+            const keywordsToSearch =
+              keywords && keywords.length > 0 ? keywords : query ? [query] : [];
+            if (keywordsToSearch.length > 0) {
+              const allFieldConditions = keywordsToSearch
+                .flatMap((kw) => [
+                  `professional_summary.ilike.%${kw}%`,
+                  `first_name.ilike.%${kw}%`,
+                  `last_initial.ilike.%${kw}%`,
+                  `city.ilike.%${kw}%`,
+                ])
+                .join(',');
+              optimizedQuery = optimizedQuery.or(allFieldConditions);
+            }
+
+            const { data: matchedProfiles } = await optimizedQuery;
+
+            if (matchedProfiles && matchedProfiles.length > 0) {
+              radiusFilteredIds = matchedProfiles.map((p) => p.id);
+              radiusSearchSucceeded = true;
+              console.log(
+                `Optimized zip search found ${radiusFilteredIds.length} profiles within radius of ${centerZipCodes.join(', ')}`
+              );
+            } else {
+              // No profiles in those zip codes
+              console.log('No profiles found in nearby zip codes');
+              return {
+                profiles: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0,
+              };
+            }
+
+            // Skip the rest of the search logic - we're done!
+            // Continue to apply the filter to the main query
+          } else {
+            console.log(
+              'Zip code radius API not available - falling back to geocoding method'
+            );
+            // Fall through to standard geocoding approach
           }
 
           // FALLBACK: Standard geocoding approach (for city searches or if zip optimization failed)
@@ -375,7 +388,7 @@ export class PostgresDatabase implements IDatabase {
             // 1. Zip + Radius: Don't filter by state (db may have wrong state for zip)
             // 2. City + State + Radius: Filter by state (trust user's state input)
             // 3. City only + Radius: Filter by city name (find all matching cities)
-            if (effectiveZipCode) {
+            if (centerZipCodes.length > 0) {
               // Zip-based search: Don't filter by state (database may have incorrect state)
               console.log(
                 `Zip-based radius search (fallback) - not filtering by state (relying on geocoding)`
@@ -402,7 +415,6 @@ export class PostgresDatabase implements IDatabase {
                 `Geocoding ${filteredProfiles.length} profiles for radius search...`
               );
 
-              // If using city geocoding, get the center coordinates first
               if (useCityGeocode) {
                 try {
                   const centerCoords = await getCityLocation(city!, state);
@@ -420,15 +432,12 @@ export class PostgresDatabase implements IDatabase {
                   } else {
                     // Modify profiles to use city geocoding for radius calc
                     radiusFilteredIds = await getProfilesWithinRadius(
-                      centerLocation,
+                      city!,
                       params.radius,
                       filteredProfiles,
                       useCityGeocode ? centerCoords : undefined
                     );
-                    console.log(
-                      'centerLocation when useCityGeocode',
-                      centerLocation
-                    );
+                    console.log('centerLocation when useCityGeocode', city);
                     console.log(
                       'radiusFilteredIds when useCityGeocode',
                       radiusFilteredIds
@@ -444,21 +453,28 @@ export class PostgresDatabase implements IDatabase {
                   radiusSearchSucceeded = true;
                 }
               } else {
-                // Standard zip code radius search
+                // Standard zip code radius search with multiple centers
                 try {
-                  radiusFilteredIds = await getProfilesWithinRadius(
-                    centerLocation,
-                    params.radius,
-                    filteredProfiles
-                  );
+                  // For multiple center zip codes, get profiles within radius of ANY center
+                  const allRadiusFilteredIdsSet = new Set<string>();
 
+                  for (const centerZip of centerZipCodes) {
+                    const idsForThisCenter = await getProfilesWithinRadius(
+                      centerZip,
+                      params.radius,
+                      filteredProfiles
+                    );
+                    idsForThisCenter.forEach((id) =>
+                      allRadiusFilteredIdsSet.add(id)
+                    );
+                    console.log(
+                      `Found ${idsForThisCenter.length} profiles within ${params.radius} miles of ${centerZip}`
+                    );
+                  }
+
+                  radiusFilteredIds = Array.from(allRadiusFilteredIdsSet);
                   console.log(
-                    'centerLocation when no useCityGeocode',
-                    centerLocation
-                  );
-                  console.log(
-                    'radiusFilteredIds when no useCityGeocode',
-                    radiusFilteredIds
+                    `Total unique profiles within radius of ${centerZipCodes.length} center(s): ${radiusFilteredIds.length}`
                   );
                   radiusSearchSucceeded = true;
                 } catch (radiusError) {
@@ -511,6 +527,68 @@ export class PostgresDatabase implements IDatabase {
             profileFetchError
           );
           // Continue with search without radius filter
+        }
+      } else if (centerLocation) {
+        // City-based radius search (single center point)
+        try {
+          // Get only profiles that match OTHER filters first
+          let preFilterQuery = this.client
+            .from('profiles')
+            .select('id, zip_code, city, state')
+            .eq('is_active', true);
+
+          // Apply profession filter
+          if (params.professionTypes && params.professionTypes.length > 0) {
+            const professionConditions = params.professionTypes
+              .map((p) => `profession_type.ilike.${p}`)
+              .join(',');
+            preFilterQuery = preFilterQuery.or(professionConditions);
+          }
+          if (office) {
+            preFilterQuery = preFilterQuery.eq('office', office);
+          }
+
+          // Apply keyword filters
+          const keywordsToSearch =
+            keywords && keywords.length > 0 ? keywords : query ? [query] : [];
+          if (keywordsToSearch.length > 0) {
+            const allFieldConditions = keywordsToSearch
+              .flatMap((kw) => [
+                `professional_summary.ilike.%${kw}%`,
+                `first_name.ilike.%${kw}%`,
+                `last_initial.ilike.%${kw}%`,
+                `city.ilike.%${kw}%`,
+              ])
+              .join(',');
+            preFilterQuery = preFilterQuery.or(allFieldConditions);
+          }
+
+          // Apply city/state filters
+          if (stateFilter && city) {
+            preFilterQuery = preFilterQuery.eq('state', stateFilter);
+          } else if (city && !stateFilter) {
+            preFilterQuery = preFilterQuery.ilike('city', `%${city}%`);
+          }
+
+          const { data: filteredProfiles } = await preFilterQuery;
+
+          if (filteredProfiles && filteredProfiles.length > 0) {
+            const centerCoords = await getCityLocation(city!, state);
+            if (centerCoords) {
+              radiusFilteredIds = await getProfilesWithinRadius(
+                centerLocation,
+                params.radius,
+                filteredProfiles,
+                centerCoords
+              );
+              radiusSearchSucceeded = true;
+              console.log(
+                `City-based radius search found ${radiusFilteredIds.length} profiles`
+              );
+            }
+          }
+        } catch (error) {
+          console.error('Error in city-based radius search:', error);
         }
       }
     } else if (zipCode || (zipCodes && zipCodes.length > 0)) {
