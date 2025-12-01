@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test:db": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/test-connection.ts",
     "test:azure": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/test-azure-sql.ts",
+    "import:azure": "npx dotenv-cli -e .env.local -- npx tsx scripts/import-to-azure-sql.ts",
     "test:helpers": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/test-helpers.ts",
     "test:sync": "npx dotenv-cli -e .env.local -- npx tsx src/lib/sync/test-sync.ts",
     "seed": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/seed.ts",
@@ -43,6 +44,7 @@
     "prettier": "^3.6.2",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
   }
 }
