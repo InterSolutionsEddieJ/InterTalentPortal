@@ -11,6 +11,8 @@
     "test:db": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/test-connection.ts",
     "test:azure": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/test-azure-sql.ts",
     "import:azure": "npx dotenv-cli -e .env.local -- npx tsx scripts/import-to-azure-sql.ts",
+    "import:ray-test": "npx dotenv-cli -e .env.local -- npx tsx scripts/import-to-ray-test.ts",
+    "test:geo": "npx dotenv-cli -e .env.local -- npx tsx scripts/test-geo-performance.ts",
     "test:helpers": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/test-helpers.ts",
     "test:sync": "npx dotenv-cli -e .env.local -- npx tsx src/lib/sync/test-sync.ts",
     "seed": "npx dotenv-cli -e .env.local -- npx tsx src/lib/db/seed.ts",
