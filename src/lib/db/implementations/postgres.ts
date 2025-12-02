@@ -761,4 +761,38 @@ export class PostgresDatabase implements IDatabase {
       throw error;
     }
   }
+
+  /**
+   * Get office email by location
+   * Looks up email in location_emails table, falls back to default
+   */
+  async getLocationEmail(
+    location: string
+  ): Promise<{ email: string; isDefault: boolean }> {
+    // Try to find exact match or case-insensitive match
+    const { data, error } = await this.client
+      .from('location_emails')
+      .select('email')
+      .ilike('location', location)
+      .single();
+
+    if (error || !data) {
+      // Fallback to default email if location not found
+      const { data: defaultData } = await this.client
+        .from('location_emails')
+        .select('email')
+        .eq('location', 'Default')
+        .single();
+
+      return {
+        email: defaultData?.email || 'info@intersolutions.com',
+        isDefault: true,
+      };
+    }
+
+    return {
+      email: data.email,
+      isDefault: false,
+    };
+  }
 }

@@ -843,4 +843,49 @@ export class AzureSqlDatabase implements IDatabase {
         );
     }
   }
+
+  /**
+   * Get office email by location
+   * For Azure SQL, we use the Office column from the main table to map to emails
+   * Falls back to a default email if no specific mapping exists
+   *
+   * Note: In a full implementation, you would create a location_emails table in Azure SQL.
+   * For now, we use a simple Office-to-email mapping.
+   */
+  async getLocationEmail(
+    location: string
+  ): Promise<{ email: string; isDefault: boolean }> {
+    // Office-to-email mapping (can be moved to a database table later)
+    const officeEmailMap: Record<string, string> = {
+      Baltimore: 'baltimore@intersolutions.com',
+      Cincinnati: 'cincinnati@intersolutions.com',
+      Chicago: 'chicago@intersolutions.com',
+      Denver: 'denver@intersolutions.com',
+      Phoenix: 'phoenix@intersolutions.com',
+      Atlanta: 'atlanta@intersolutions.com',
+      Dallas: 'dallas@intersolutions.com',
+      Houston: 'houston@intersolutions.com',
+      'Los Angeles': 'losangeles@intersolutions.com',
+      'New York': 'newyork@intersolutions.com',
+      Default: 'info@intersolutions.com',
+    };
+
+    // Case-insensitive lookup
+    const normalizedLocation = location.trim();
+    const matchedKey = Object.keys(officeEmailMap).find(
+      (key) => key.toLowerCase() === normalizedLocation.toLowerCase()
+    );
+
+    if (matchedKey && matchedKey !== 'Default') {
+      return {
+        email: officeEmailMap[matchedKey],
+        isDefault: false,
+      };
+    }
+
+    return {
+      email: officeEmailMap['Default'],
+      isDefault: true,
+    };
+  }
 }

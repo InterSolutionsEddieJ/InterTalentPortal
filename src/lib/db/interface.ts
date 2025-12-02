@@ -54,6 +54,14 @@ export interface OfficeInfo {
 }
 
 /**
+ * Location email lookup result
+ */
+export interface LocationEmailResult {
+  email: string;
+  isDefault: boolean;
+}
+
+/**
  * Database Interface
  * All database implementations must conform to this interface
  */
@@ -72,6 +80,7 @@ export interface IDatabase {
   getProfessionTypes(): Promise<string[]>;
   getStates(): Promise<StateInfo[]>;
   getOffices(): Promise<OfficeInfo[]>;
+  getLocationEmail(location: string): Promise<LocationEmailResult>;
 
   // Profile mutations (for sync service)
   insertProfiles(profiles: Profile[]): Promise<void>;

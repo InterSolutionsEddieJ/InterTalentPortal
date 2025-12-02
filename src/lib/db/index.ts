@@ -48,5 +48,6 @@ export type {
   PaginatedProfiles,
   StateInfo,
   OfficeInfo,
+  LocationEmailResult,
 } from './interface';
 export type { Profile } from './supabase';
