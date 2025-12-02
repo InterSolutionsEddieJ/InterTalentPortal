@@ -8,6 +8,36 @@ import ScrollToTop from '@/components/ui/ScrollToTop';
 import LoadingManager from '@/components/ui/LoadingManager';
 import { db } from '@/lib/db';
 
+// Helper function to build search params string for API calls
+function buildSearchParams(params: {
+  keywords?: string;
+  zipCodes?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  radius?: number;
+  professions?: string;
+  office?: string;
+  sortBy?: string;
+  sortDirection?: string;
+}): string {
+  const searchParams = new URLSearchParams();
+
+  if (params.keywords) searchParams.set('keywords', params.keywords);
+  if (params.zipCodes) searchParams.set('zipCodes', params.zipCodes);
+  if (params.city) searchParams.set('city', params.city);
+  if (params.state) searchParams.set('state', params.state);
+  if (params.zipCode) searchParams.set('zip', params.zipCode);
+  if (params.radius) searchParams.set('radius', params.radius.toString());
+  if (params.professions) searchParams.set('professions', params.professions);
+  if (params.office) searchParams.set('office', params.office);
+  if (params.sortBy) searchParams.set('sortBy', params.sortBy);
+  if (params.sortDirection)
+    searchParams.set('sortDirection', params.sortDirection);
+
+  return searchParams.toString();
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -150,7 +180,20 @@ export default async function Home({
               <ProfileResults
                 key={searchKey}
                 profiles={result.profiles}
+                totalCount={result.total}
                 initialDisplay={5}
+                searchParams={buildSearchParams({
+                  keywords,
+                  zipCodes,
+                  city,
+                  state,
+                  zipCode,
+                  radius,
+                  professions,
+                  office,
+                  sortBy,
+                  sortDirection,
+                })}
               />
             ) : (
               <EmptyState
