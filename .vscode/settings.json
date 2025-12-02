@@ -2,15 +2,15 @@
     "appService.defaultWebAppToDeploy": "/subscriptions/24715274-b9b5-48e0-bb25-7fd6f622484b/resourceGroups/intertalent-portal/providers/Microsoft.Web/sites/ipnet10",
     "appService.deploySubpath": ".",
     "appService.zipIgnorePattern": [
-        "node_modules{,/**}",
-        ".next{,/**}",
-        ".git{,/**}",
-        ".github{,/**}",
-        ".vscode{,/**}",
-        "data{,/**}",
+        "node_modules/**",
+        ".next/**",
+        ".git/**",
+        ".github/**",
+        "data/**",
         ".env*",
         "*.md",
-        "coverage{,/**}",
-        "*.log"
+        "*.zip",
+        "coverage/**",
+        ".vscode/**"
     ]
 }
