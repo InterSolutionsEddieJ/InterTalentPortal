@@ -77,6 +77,10 @@ export interface SearchFilters {
   radiusEnabled: boolean; // Toggle for radius search
   selectedProfessions: string[]; // Array of professions (from hero OR sidebar)
 
+  // Shared professions list (fetched once, shared by all components)
+  professionsList: string[];
+  professionsLoading: boolean;
+
   // Bookmarks (Phase 6)
   bookmarkedIds: string[];
   showBookmarksOnly: boolean;
@@ -111,6 +115,9 @@ interface SearchStore extends SearchFilters {
   // Loading actions
   setIsLoading: (loading: boolean) => void;
 
+  // Professions list actions
+  fetchProfessions: () => Promise<void>;
+
   // Utility
   clearFilters: () => void;
   parseLocation: () => void; // Parse location string into city/state/zip
@@ -127,6 +134,8 @@ const initialState: SearchFilters = {
   radius: 10,
   radiusEnabled: false, // Disabled by default for exact match
   selectedProfessions: [],
+  professionsList: [],
+  professionsLoading: false,
   bookmarkedIds: [],
   showBookmarksOnly: false,
   isLoading: false,
@@ -212,10 +221,32 @@ export const useSearchStore = create<SearchStore>()(
 
       setIsLoading: (loading) => set({ isLoading: loading }),
 
+      fetchProfessions: async () => {
+        // Skip if already loaded or currently loading
+        const { professionsList, professionsLoading } = get();
+        if (professionsList.length > 0 || professionsLoading) {
+          return;
+        }
+
+        set({ professionsLoading: true });
+        try {
+          const res = await fetch('/api/professions');
+          const data = await res.json();
+          set({
+            professionsList: data.data || [],
+            professionsLoading: false,
+          });
+        } catch (error) {
+          console.error('Error fetching professions:', error);
+          set({ professionsLoading: false });
+        }
+      },
+
       clearFilters: () =>
         set({
           ...initialState,
           bookmarkedIds: get().bookmarkedIds, // Keep bookmarks when clearing filters
+          professionsList: get().professionsList, // Keep professions list when clearing
         }),
 
       /**

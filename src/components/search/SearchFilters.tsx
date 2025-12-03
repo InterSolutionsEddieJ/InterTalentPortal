@@ -25,9 +25,6 @@ interface SearchFiltersProps {
 export default function SearchFilters({ className = '' }: SearchFiltersProps) {
   const router = useRouter();
 
-  const [professions, setProfessions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-
   // Local state for input values (what user is typing)
   const [keywordInput, setKeywordInput] = useState('');
   const [zipCodeInput, setZipCodeInput] = useState('');
@@ -45,6 +42,13 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
     (state) => state.selectedProfessions
   );
 
+  // Shared professions list from store
+  const professions = useSearchStore((state) => state.professionsList);
+  const professionsLoading = useSearchStore(
+    (state) => state.professionsLoading
+  );
+  const fetchProfessions = useSearchStore((state) => state.fetchProfessions);
+
   const addKeyword = useSearchStore((state) => state.addKeyword);
   const removeKeyword = useSearchStore((state) => state.removeKeyword);
   const addZipCode = useSearchStore((state) => state.addZipCode);
@@ -55,27 +59,10 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
   const buildQueryParams = useSearchStore((state) => state.buildQueryParams);
   const setIsLoading = useSearchStore((state) => state.setIsLoading);
 
-  // Initialize local inputs from store on mount
+  // Fetch professions on mount (shared across components)
   useEffect(() => {
-    // No need to initialize from store - inputs start empty
-  }, []);
-
-  // Fetch filter options on mount
-  useEffect(() => {
-    const fetchFilters = async () => {
-      try {
-        const professionsRes = await fetch('/api/professions');
-        const professionsData = await professionsRes.json();
-        setProfessions(professionsData.data || []);
-      } catch (error) {
-        console.error('Error fetching professions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFilters();
-  }, []);
+    fetchProfessions();
+  }, [fetchProfessions]);
 
   const applyFilters = () => {
     let hasError = false;
@@ -336,7 +323,7 @@ export default function SearchFilters({ className = '' }: SearchFiltersProps) {
           <label className="block text-sm font-semibold text-gray-900 mb-3">
             Profession
           </label>
-          {loading ? (
+          {professionsLoading || professions.length === 0 ? (
             <div className="space-y-2">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div

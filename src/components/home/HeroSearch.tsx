@@ -25,7 +25,6 @@ const sanitizeLocation = (value: string): string => {
 
 export default function HeroSearch() {
   const router = useRouter();
-  const [professions, setProfessions] = useState<string[]>([]);
   const dropdownChangedRef = useRef(false); // Track if user changed the dropdown
   const [locationError, setLocationError] = useState('');
 
@@ -44,23 +43,18 @@ export default function HeroSearch() {
   const buildQueryParams = useSearchStore((state) => state.buildQueryParams);
   const setIsLoading = useSearchStore((state) => state.setIsLoading);
 
+  // Shared professions list from store
+  const professions = useSearchStore((state) => state.professionsList);
+  const fetchProfessions = useSearchStore((state) => state.fetchProfessions);
+
   // Derive dropdown value from store: only show if there's exactly one profession
   const selectedProfession =
     selectedProfessions.length === 1 ? selectedProfessions[0] : '';
 
-  // Fetch professions on mount
+  // Fetch professions on mount (shared across components)
   useEffect(() => {
-    const fetchProfessions = async () => {
-      try {
-        const res = await fetch('/api/professions');
-        const data = await res.json();
-        setProfessions(data.data || []);
-      } catch (error) {
-        console.error('Error fetching professions:', error);
-      }
-    };
     fetchProfessions();
-  }, []);
+  }, [fetchProfessions]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
