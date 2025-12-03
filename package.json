@@ -17,6 +17,7 @@
     "import:azure": "npx dotenv-cli -e .env.local -- npx tsx scripts/import-to-azure-sql.ts",
     "import:ray-test": "npx dotenv-cli -e .env.local -- npx tsx scripts/import-to-ray-test.ts",
     "import:ray-test-accurate": "npx dotenv-cli -e .env.local -- npx tsx scripts/import-to-ray-test-accurate.ts",
+    "import:location-emails": "npx dotenv-cli -e .env.local -- npx tsx scripts/import-location-emails.ts",
     "test:geo": "npx dotenv-cli -e .env.local -- npx tsx scripts/test-geo-performance.ts",
     "test:zip-api": "npx tsx scripts/test-zip-api.ts",
     "test:radius-search": "npx dotenv-cli -e .env.local -- npx tsx scripts/test-radius-search.ts",
