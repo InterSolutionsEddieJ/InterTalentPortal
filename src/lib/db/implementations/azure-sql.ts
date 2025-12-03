@@ -15,9 +15,10 @@ import type {
 import type { Profile } from '../supabase';
 import { getZipLocation, getCityLocation } from '../../geospatial';
 
-// Use RayTestShowcase for testing (has GeoLocation column with spatial index)
-// Change to 'InterTalentShowcase' when client's pipeline is complete
-const TABLE_NAME = 'RayTestShowcase';
+// Table names configurable via environment variables
+const PROFILE_TABLE = process.env.AZURE_SQL_PROFILE_TABLE || 'RayTestShowcase';
+const LOCATION_EMAIL_TABLE =
+  process.env.AZURE_SQL_LOCATION_EMAIL_TABLE || 'location_emails';
 
 // Check if table has GeoLocation column
 let hasGeoLocationColumn: boolean | null = null;
@@ -47,24 +48,24 @@ export class AzureSqlDatabase implements IDatabase {
       // Check if column exists
       const columnCheck = await pool.request().query(`
         SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_NAME = '${TABLE_NAME}' AND COLUMN_NAME = 'GeoLocation'
+        WHERE TABLE_NAME = '${PROFILE_TABLE}' AND COLUMN_NAME = 'GeoLocation'
       `);
 
       if (columnCheck.recordset[0].cnt === 0) {
-        console.log(`Table ${TABLE_NAME} does not have GeoLocation column`);
+        console.log(`Table ${PROFILE_TABLE} does not have GeoLocation column`);
         hasGeoLocationColumn = false;
         return false;
       }
 
       // Check if there's data
       const dataCheck = await pool.request().query(`
-        SELECT COUNT(*) as cnt FROM ${TABLE_NAME} WHERE GeoLocation IS NOT NULL
+        SELECT COUNT(*) as cnt FROM ${PROFILE_TABLE} WHERE GeoLocation IS NOT NULL
       `);
 
       const count = dataCheck.recordset[0].cnt;
       hasGeoLocationColumn = count > 0;
       console.log(
-        `Table ${TABLE_NAME} has ${count} records with GeoLocation - spatial queries ${hasGeoLocationColumn ? 'ENABLED' : 'DISABLED'}`
+        `Table ${PROFILE_TABLE} has ${count} records with GeoLocation - spatial queries ${hasGeoLocationColumn ? 'ENABLED' : 'DISABLED'}`
       );
 
       return hasGeoLocationColumn;
@@ -194,7 +195,7 @@ export class AzureSqlDatabase implements IDatabase {
     const countResult = await pool
       .request()
       .query(
-        `SELECT COUNT(*) as total FROM ${TABLE_NAME} WHERE ${activeCondition}`
+        `SELECT COUNT(*) as total FROM ${PROFILE_TABLE} WHERE ${activeCondition}`
       );
     const total = countResult.recordset[0].total;
 
@@ -203,7 +204,7 @@ export class AzureSqlDatabase implements IDatabase {
       .input('offset', sql.Int, offset)
       .input('limit', sql.Int, limit)
       .query(
-        `SELECT * FROM ${TABLE_NAME} WHERE ${activeCondition} ORDER BY ${sortColumn} ${sortDir} OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`
+        `SELECT * FROM ${PROFILE_TABLE} WHERE ${activeCondition} ORDER BY ${sortColumn} ${sortDir} OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`
       );
 
     const profiles = dataResult.recordset.map((row: Record<string, unknown>) =>
@@ -227,7 +228,7 @@ export class AzureSqlDatabase implements IDatabase {
       .request()
       .input('id', sql.BigInt, parseInt(id, 10))
       .query(
-        `SELECT * FROM ${TABLE_NAME} WHERE PersonID = @id AND ${activeCondition}`
+        `SELECT * FROM ${PROFILE_TABLE} WHERE PersonID = @id AND ${activeCondition}`
       );
 
     if (result.recordset.length === 0) return null;
@@ -271,7 +272,7 @@ export class AzureSqlDatabase implements IDatabase {
 
     const countResult = await countRequest.query(`
       DECLARE @center GEOGRAPHY = geography::Point(@centerLat, @centerLng, 4326);
-      SELECT COUNT(*) as total FROM ${TABLE_NAME} WHERE ${whereClause}
+      SELECT COUNT(*) as total FROM ${PROFILE_TABLE} WHERE ${whereClause}
     `);
     const total = countResult.recordset[0].total;
 
@@ -318,7 +319,7 @@ export class AzureSqlDatabase implements IDatabase {
       DECLARE @center GEOGRAPHY = geography::Point(@centerLat, @centerLng, 4326);
       
       SELECT *, GeoLocation.STDistance(@center) / 1609.344 as distance_miles
-      FROM ${TABLE_NAME}
+      FROM ${PROFILE_TABLE}
       WHERE ${whereClause}
       ORDER BY ${orderClause}
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -371,7 +372,7 @@ export class AzureSqlDatabase implements IDatabase {
         Office, ProfessionType, Skill, OnAssignment, Status, HireDate, RunTime,
         GeoLocation.STDistance(geography::Point(${center.lat}, ${center.lng}, 4326)) / 1609.344 as distance_miles,
         '${center.zipCode}' as nearest_center
-      FROM ${TABLE_NAME}
+      FROM ${PROFILE_TABLE}
       WHERE GeoLocation IS NOT NULL 
         AND GeoLocation.STDistance(geography::Point(${center.lat}, ${center.lng}, 4326)) <= ${radiusMeters}
         AND ${conditionsForWhere}
@@ -688,7 +689,7 @@ export class AzureSqlDatabase implements IDatabase {
     const sortDir = sortDirection.toUpperCase();
 
     const countResult = await request.query(
-      `SELECT COUNT(*) as total FROM ${TABLE_NAME} WHERE ${whereClause}`
+      `SELECT COUNT(*) as total FROM ${PROFILE_TABLE} WHERE ${whereClause}`
     );
     const total = countResult.recordset[0].total;
 
@@ -696,7 +697,7 @@ export class AzureSqlDatabase implements IDatabase {
     request.input('limit', sql.Int, limit);
 
     const dataResult = await request.query(
-      `SELECT * FROM ${TABLE_NAME} WHERE ${whereClause} ORDER BY ${sortColumn} ${sortDir} OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`
+      `SELECT * FROM ${PROFILE_TABLE} WHERE ${whereClause} ORDER BY ${sortColumn} ${sortDir} OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`
     );
 
     const profiles = dataResult.recordset.map((row: Record<string, unknown>) =>
@@ -717,7 +718,7 @@ export class AzureSqlDatabase implements IDatabase {
     const result = await pool
       .request()
       .query(
-        `SELECT DISTINCT ProfessionType FROM ${TABLE_NAME} WHERE ${this.getActiveCondition()} AND ProfessionType IS NOT NULL AND ProfessionType != '' ORDER BY ProfessionType`
+        `SELECT DISTINCT ProfessionType FROM ${PROFILE_TABLE} WHERE ${this.getActiveCondition()} AND ProfessionType IS NOT NULL AND ProfessionType != '' ORDER BY ProfessionType`
       );
     return result.recordset.map(
       (row: Record<string, unknown>) => row.ProfessionType as string
@@ -729,7 +730,7 @@ export class AzureSqlDatabase implements IDatabase {
     const result = await pool
       .request()
       .query(
-        `SELECT DISTINCT State as code, State as name FROM ${TABLE_NAME} WHERE ${this.getActiveCondition()} AND State IS NOT NULL AND State != '' ORDER BY State`
+        `SELECT DISTINCT State as code, State as name FROM ${PROFILE_TABLE} WHERE ${this.getActiveCondition()} AND State IS NOT NULL AND State != '' ORDER BY State`
       );
     return result.recordset.map((row: Record<string, unknown>) => ({
       code: row.code as string,
@@ -742,7 +743,7 @@ export class AzureSqlDatabase implements IDatabase {
     const result = await pool
       .request()
       .query(
-        `SELECT DISTINCT Office as name, City as city, State as state FROM ${TABLE_NAME} WHERE ${this.getActiveCondition()} AND Office IS NOT NULL AND Office != '' ORDER BY Office`
+        `SELECT DISTINCT Office as name, City as city, State as state FROM ${PROFILE_TABLE} WHERE ${this.getActiveCondition()} AND Office IS NOT NULL AND Office != '' ORDER BY Office`
       );
     return result.recordset.map((row: Record<string, unknown>) => ({
       name: row.name as string,
@@ -779,7 +780,7 @@ export class AzureSqlDatabase implements IDatabase {
         .input('runDate', sql.Date, new Date())
         .input('runTime', sql.DateTime2, new Date())
         .query(
-          `INSERT INTO ${TABLE_NAME} (Name, City, State, ZipCode, ProfessionalSummary, Office, ProfessionType, Skill, Status, RunDate, RunTime) VALUES (@name, @city, @state, @zipCode, @professionalSummary, @office, @professionType, @skill, @status, @runDate, @runTime)`
+          `INSERT INTO ${PROFILE_TABLE} (Name, City, State, ZipCode, ProfessionalSummary, Office, ProfessionType, Skill, Status, RunDate, RunTime) VALUES (@name, @city, @state, @zipCode, @professionalSummary, @office, @professionType, @skill, @status, @runDate, @runTime)`
         );
     }
   }
@@ -823,7 +824,7 @@ export class AzureSqlDatabase implements IDatabase {
 
     if (updates.length === 0) return;
     await request.query(
-      `UPDATE ${TABLE_NAME} SET ${updates.join(', ')} WHERE PersonID = @id`
+      `UPDATE ${PROFILE_TABLE} SET ${updates.join(', ')} WHERE PersonID = @id`
     );
   }
 
@@ -835,7 +836,7 @@ export class AzureSqlDatabase implements IDatabase {
         .input('id', sql.BigInt, parseInt(id, 10))
         .input('runTime', sql.DateTime2, new Date())
         .query(
-          `UPDATE ${TABLE_NAME} SET Status = 'Inactive', RunTime = @runTime WHERE PersonID = @id`
+          `UPDATE ${PROFILE_TABLE} SET Status = 'Inactive', RunTime = @runTime WHERE PersonID = @id`
         );
     }
   }
@@ -858,7 +859,7 @@ export class AzureSqlDatabase implements IDatabase {
       const exactResult = await pool
         .request()
         .input('market', sql.NVarChar, normalizedLocation).query(`
-          SELECT email FROM dbo.location_emails 
+          SELECT email FROM dbo.${LOCATION_EMAIL_TABLE} 
           WHERE LOWER(market) = LOWER(@market)
         `);
 
@@ -873,7 +874,7 @@ export class AzureSqlDatabase implements IDatabase {
       const partialResult = await pool
         .request()
         .input('market', sql.NVarChar, `%${normalizedLocation}%`).query(`
-          SELECT TOP 1 email, market FROM dbo.location_emails 
+          SELECT TOP 1 email, market FROM dbo.${LOCATION_EMAIL_TABLE} 
           WHERE LOWER(market) LIKE LOWER(@market)
              OR LOWER(@market) LIKE '%' + LOWER(market) + '%'
           ORDER BY LEN(market) DESC
@@ -888,7 +889,7 @@ export class AzureSqlDatabase implements IDatabase {
 
       // Fallback to default
       const defaultResult = await pool.request().query(`
-        SELECT email FROM dbo.location_emails WHERE market = 'Default'
+        SELECT email FROM dbo.${LOCATION_EMAIL_TABLE} WHERE market = 'Default'
       `);
 
       return {
