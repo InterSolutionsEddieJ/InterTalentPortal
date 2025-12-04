@@ -5,7 +5,6 @@
 
 import { PostgresDatabase } from './implementations/postgres';
 import { AzureSqlDatabase } from './implementations/azure-sql';
-import { supabase, supabaseAdmin } from './supabase';
 import type { IDatabase } from './interface';
 
 /**
