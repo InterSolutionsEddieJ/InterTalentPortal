@@ -6,6 +6,7 @@
 
 import { PostgresDatabase } from './implementations/postgres';
 import { AzureSqlDatabase } from './implementations/azure-sql';
+import { supabase, supabaseAdmin } from './supabase';
 import type { IDatabase } from './interface';
 
 /**
@@ -16,14 +17,13 @@ import type { IDatabase } from './interface';
 function createDatabase(): IDatabase {
   const dbType = process.env.DATABASE_TYPE || 'postgres';
 
-  // PostgreSQL (Supabase)
   if (dbType === 'postgres') {
-    const { supabase, supabaseAdmin } = require('./supabase'); // Lazy-load only when needed
+    // Current: PostgreSQL via Supabase
     return new PostgresDatabase(supabase, supabaseAdmin);
   }
 
-  // Azure SQL
   if (dbType === 'azure-sql') {
+    // Production: Azure SQL Server
     return new AzureSqlDatabase();
   }
 
@@ -35,8 +35,10 @@ function createDatabase(): IDatabase {
  * Import this throughout your application
  *
  * Usage:
+ * ```typescript
  * import { db } from '@/lib/db';
  * const profiles = await db.getAllProfiles();
+ * ```
  */
 export const db = createDatabase();
 
