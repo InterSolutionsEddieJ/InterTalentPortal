@@ -76,7 +76,7 @@ export default async function ProfilePage({
                         d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                       />
                     </svg>
-                    {profile.city}, {profile.state} {profile.zip_code}
+                    {profile.city}, {profile.state} {/* {profile.zip_code} commented out 12/10/25 MS */}
                   </div>
 
                   {/* Office */}

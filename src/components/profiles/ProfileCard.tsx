@@ -156,7 +156,7 @@ export default function ProfileCard({
                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                {profile.city}, {profile.state} • {profile.zip_code}
+                {profile.city}, {profile.state} {/* • {profile.zip_code}  commented out 12/10/25 MS */}
               </div>
             </div>
           </div>
@@ -283,7 +283,7 @@ export default function ProfileCard({
                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
-            {profile.city}, {profile.state} • {profile.zip_code}
+            {profile.city}, {profile.state}  {/*• {profile.zip_code} commented out 12/10/25 MS */}
           </div>
 
           {/* Bio Snippet or Full Bio */}
