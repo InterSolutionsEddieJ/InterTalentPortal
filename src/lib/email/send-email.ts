@@ -128,3 +128,82 @@ export async function verifySmtpConnection(): Promise<boolean> {
     return false;
   }
 }
+
+// TalentRequestModal Email parameters added 12/11/25 MS 
+interface TalentRequestEmailParams {
+  toEmail: string;               // Always InterTalent@ for now
+  requesterName: string;
+  requesterEmail: string;
+  requesterPhone?: string;
+  notes: string;
+}
+
+/**
+ * Send "Request Talent" email (No candidates found)
+ * Always goes to InterTalent@intersolutions.com
+ */
+export async function sendTalentRequestEmail(
+  params: TalentRequestEmailParams
+): Promise<{ success: boolean; error?: string }> {
+  const { toEmail, requesterName, requesterEmail, requesterPhone, notes } = params;
+
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    console.warn("SMTP not configured - talent request email not sent");
+    return { success: false, error: "SMTP not configured" };
+  }
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #0077B5;">New Talent Request (No Candidates Found)</h2>
+
+      <p>A user submitted a talent request from the InterTalent Portal.</p>
+
+      <h3 style="color: #333;">Requester Information</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Name:</strong></td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${requesterName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email:</strong></td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">
+            <a href="mailto:${requesterEmail}">${requesterEmail}</a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone:</strong></td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${requesterPhone || "Not provided"}</td>
+        </tr>
+      </table>
+
+      <h3 style="color: #333;">Requested Talent Details</h3>
+      <div style="background: #f9f9f9; padding: 15px; border-left: 3px solid #0077B5; margin: 15px 0;">
+        ${notes.replace(/\n/g, "<br>")}
+      </div>
+
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+      <p style="color: #666; font-size: 12px;">
+        This email was sent from the InterTalent Portal (No candidates found).
+      </p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: toEmail, // Always InterTalent inbox
+      replyTo: requesterEmail,
+      subject: `New Talent Request from ${requesterName}`,
+      html,
+    });
+
+    console.log(`Talent Request Email sent to ${toEmail}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to send talent request email:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  }
+}

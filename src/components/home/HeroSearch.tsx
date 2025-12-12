@@ -127,10 +127,10 @@ export default function HeroSearch() {
 
   return (
     <section className="relative bg-[#1e3a5f] text-white overflow-hidden">
-      {/* Background Image */}
+      {/* Background Image  Changed on 12/12/25 to Marketing image reduced size by MS*/}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat h-[850px]"
-        style={{ backgroundImage: 'url(/bg-hero1.jpg)' }}
+        className="absolute inset-0 bg-cover bg-left bg-no-repeat sm:bg-top"
+        style={{ backgroundImage: 'url(/bg-hero2.1.jpg)' }}
       />
 
       {/* Dark overlay for text readability */}

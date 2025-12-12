@@ -6,6 +6,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import SearchParamsSyncer from '@/components/search/SearchParamsSyncer';
 import ScrollToTop from '@/components/ui/ScrollToTop';
 import LoadingManager from '@/components/ui/LoadingManager';
+import InjectTalentModal from '@/components/search/InjectTalentModal';
 import { db } from '@/lib/db';
 
 // Helper function to build search params string for API calls
@@ -175,8 +176,8 @@ export default async function Home({
               </p>
             </div>
 
-            {/* Profile Cards or Empty State */}
-            {result.profiles.length > 0 ? (
+            {/* Profile Cards or Empty State Updated for Request Talent Modal 12/12/25 MS */}
+                        {result.profiles.length > 0 ? (
               <ProfileResults
                 key={searchKey}
                 profiles={result.profiles}
@@ -196,16 +197,18 @@ export default async function Home({
                 })}
               />
             ) : (
-              <EmptyState
-                title="No candidates found"
-                message={
-                  hasFilters
-                    ? "We couldn't find any candidates matching your search criteria. Try adjusting your filters or search terms."
-                    : 'No candidates are currently available in our database.'
-                }
-                actionLabel="Clear all filters"
-                actionHref="/"
-              />
+              <InjectTalentModal>
+                <EmptyState
+                  title="No candidates available"
+                  message={
+                    hasFilters
+                      ? "It looks like all available talent in this area is currently assisting other properties. Try adjusting your filters, or submit a request and our team will contact you shortly."
+                      : "Submit a request and our team will contact you shortly."
+                  }
+                  actionLabel="Clear all filters"
+                  actionHref="/"
+                />
+              </InjectTalentModal>
             )}
           </div>
         </div>
